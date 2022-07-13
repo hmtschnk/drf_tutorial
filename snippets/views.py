@@ -2,16 +2,18 @@
 # from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.http import Http404
+from django.contrib.auth.models import User
 
 # from rest_framework.parsers import JSONParser # Serializer
-from snippets.models import Snippet
-from snippets.serializers import SnippetSerializer
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework import mixins
-from rest_framework import generics
+from rest_framework import mixins, generics, permissions
+
+from snippets.models import Snippet
+from snippets.permissions import IsOwnerOrReadOnly
+from snippets.serializers import SnippetSerializer, UserSerializer
 
 # Create your views here.
 # @csrf_exempt
@@ -91,12 +93,16 @@ class SnippetList(mixins.ListModelMixin,
                   generics.GenericAPIView):
     queryset = Snippet.objects.all()
     serializer_class = SnippetSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
         return self.create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
 # class SnippetDetail(APIView):
 #     """
@@ -132,6 +138,8 @@ class SnippetDetail(mixins.RetrieveModelMixin,
                      generics.GenericAPIView):
     queryset = Snippet.objects.all()
     serializer_class = SnippetSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly,
+                          IsOwnerOrReadOnly]
 
     def get(self, request, *args, **kwargs):
         return self.retrieve(request, *args, **kwargs)
@@ -141,3 +149,11 @@ class SnippetDetail(mixins.RetrieveModelMixin,
 
     def delete(self, request, *args, **kwargs):
         return self.destroy(request, *args, **kwargs)
+
+class UserList(generics.ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+class UserDetail(generics.RetrieveAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
